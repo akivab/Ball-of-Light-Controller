@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Ball of Light</string>
+    <string name="title_action_detail">Action Detail</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="host_ip">Host IP</string>
+    <string name="ok">OK</string>
+    <string name="not_connected_to_ball">Not Connected To Ball</string>
+    <string name="rotate_90">Rotate 90˚</string>
+    <string name="flip">Flip</string>
+    <string name="draw">Draw</string>
+    <string name="upload">Upload</string>
+    <string name="gallery">Gallery</string>
+    <string name="reset">Reset</string>
+</resources>
