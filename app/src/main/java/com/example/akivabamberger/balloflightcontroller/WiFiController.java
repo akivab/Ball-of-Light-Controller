@@ -49,7 +49,7 @@ public class WiFiController {
     private String host = null; //"10.29.6.73";
     private final String kLastCommandPath = "/lastCommand";
     private final String kUploadImagePath = "/uploadImage";
-    private final long kMinimumTimeBetweenRequests = 5 * 1000; // 10 seconds
+    private final long kMinimumTimeBetweenRequests = 5 * 1000; // 5 seconds
     private Date dateAtLastRequestSent;
     private RequestQueue requestQueue = null;
     private String currentStatus;
@@ -208,8 +208,8 @@ public class WiFiController {
             dialog.dismiss();
         } catch (IOException e) {
             e.printStackTrace();
+            dialog.dismiss();
         }
-
     }
 
     public void stop() {
