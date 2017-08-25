@@ -3,7 +3,9 @@ package com.example.akivabamberger.balloflightcontroller;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -24,6 +26,10 @@ import com.example.akivabamberger.balloflightcontroller.dummy.DummyContent;
 
 import java.util.List;
 
+import static com.example.akivabamberger.balloflightcontroller.ActionDetailFragment.ARG_ITEM_ID;
+import static com.example.akivabamberger.balloflightcontroller.WiFiController.HOST_NAME;
+import static com.example.akivabamberger.balloflightcontroller.WiFiController.SHARED_PREF_HOST_KEY;
+
 /**
  * An activity representing a list of Actions. This activity
  * has different presentations for handset and tablet-size devices. On
@@ -32,7 +38,9 @@ import java.util.List;
  * item details. On tablets, the activity presents the list of items and
  * item details side-by-side using two vertical panes.
  */
-public class ActionListActivity extends AppCompatActivity {
+public class ActionListActivity extends AppCompatActivity implements WifiControllerDelegate {
+
+    private boolean shouldShowUploadImage;
 
     /**
      * Whether or not the activity is in two-pane mode, i.e. running on a tablet
@@ -53,9 +61,64 @@ public class ActionListActivity extends AppCompatActivity {
         assert recyclerView != null;
         setupRecyclerView((RecyclerView) recyclerView);
 
+        final SharedPreferences settings = getApplicationContext().getSharedPreferences(HOST_NAME, MODE_PRIVATE);
+
+
         WiFiController.getInstance().stop();
-        WiFiController.getInstance().setContext(getApplicationContext());
+        WiFiController.getInstance().setContextAndDelegate(getApplicationContext(), this);
+        String prefHost = settings.getString(SHARED_PREF_HOST_KEY, null);
+        if (prefHost != null) {
+            WiFiController.getInstance().setHost(prefHost);
+        }
         WiFiController.getInstance().startPolling();
+
+        Intent intent = getIntent();
+        String action = intent.getAction();
+        String type = intent.getType();
+
+        if (Intent.ACTION_SEND.equals(action) && type != null) {
+            if (type.startsWith("image/")) {
+                handleSendImage(intent); // Handle single image being sent
+            }
+        }
+    }
+
+    public void onWifiControllerCallback() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                TextView tv = (TextView) findViewById(R.id.textView);
+                updateWifiStateTextView(tv);
+            }
+        });
+    }
+
+    public static void updateWifiStateTextView(TextView tv) {
+        if (tv == null) {
+            return;
+        }
+        if (WiFiController.getInstance().currentMode() == WiFiController.CurrentConnectionMode.CONNECTED) {
+            tv.setText("Connected to " + WiFiController.getInstance().getHost());
+            tv.setTextColor(Color.rgb(39, 139, 34));
+        } else if (WiFiController.getInstance().currentMode() == WiFiController.CurrentConnectionMode.TRYING_NEW_HOST) {
+            tv.setText("Trying to connect to " + WiFiController.getInstance().getHost());
+            tv.setTextColor(Color.DKGRAY);
+        } else if (WiFiController.getInstance().currentMode() == WiFiController.CurrentConnectionMode.ERROR_CONNECTING) {
+            tv.setText("Error connecting to " + WiFiController.getInstance().getHost());
+            tv.setTextColor(Color.rgb(128, 0, 0));
+        } else if (WiFiController.getInstance().currentMode() == WiFiController.CurrentConnectionMode.UNCONNECTED) {
+            tv.setText("Not Connected to Ball");
+            tv.setTextColor(Color.LTGRAY);
+        }
+    }
+
+    private void handleSendImage(Intent intent) {
+        Uri imageUri = (Uri) intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        if (imageUri != null) {
+            ImageManipulator.setSavedImageFromUri(imageUri, this);
+            shouldShowUploadImage = true;
+        }
+
     }
 
     private void setupRecyclerView(@NonNull RecyclerView recyclerView) {
@@ -79,10 +142,10 @@ public class ActionListActivity extends AppCompatActivity {
         }
 
         void handleClick(final ViewHolder holder) {
-            Bundle arguments = new Bundle();
-            arguments.putString(ActionDetailFragment.ARG_ITEM_ID, "" + holder.mItem.id);
+            Bundle args = new Bundle();
+            args.putString(ARG_ITEM_ID, "" + holder.mItem.id);
             Fragment fragment = holder.getFragment();
-            fragment.setArguments(arguments);
+            fragment.setArguments(args);
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.action_detail_container, fragment)
                     .commit();
@@ -91,7 +154,6 @@ public class ActionListActivity extends AppCompatActivity {
                 InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
                 imm.hideSoftInputFromWindow(lastHeld.mView.getWindowToken(), 0);
             }
-
             holder.mView.setBackgroundColor(Color.LTGRAY);
             lastHeld = holder;
         }
@@ -107,7 +169,9 @@ public class ActionListActivity extends AppCompatActivity {
                     handleClick(holder);
                 }
             });
-            if (position == 0) {
+            if (!shouldShowUploadImage && position == 0) {
+                handleClick(holder);
+            } else if (shouldShowUploadImage && position == 2) {
                 handleClick(holder);
             }
         }

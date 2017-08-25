@@ -3,6 +3,7 @@ package com.example.akivabamberger.balloflightcontroller;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.util.Log;
 import android.view.View;
@@ -26,7 +27,24 @@ import java.util.TimerTask;
  * Created by akivabam.berger on 8/24/17.
  */
 
+interface WifiControllerDelegate
+{
+    void onWifiControllerCallback();
+}
 public class WiFiController {
+    public CurrentConnectionMode currentMode() {
+        return connectionMode;
+    }
+
+    enum CurrentConnectionMode {
+        UNCONNECTED,
+        TRYING_NEW_HOST,
+        ERROR_CONNECTING,
+        CONNECTED
+    }
+    public static String SHARED_PREF_HOST_KEY = "Host";
+    public static final String HOST_NAME = "BallOfLightHost";
+
     private static final String TAG = "WiFiController";
     private String host = null; //"10.29.6.73";
     private final String kLastCommandPath = "/lastCommand";
@@ -38,41 +56,49 @@ public class WiFiController {
     private boolean isPolling = false;
     private Timer timer;
     private static WiFiController INSTANCE = new WiFiController();
-    private boolean isConnected;
-    private View lastVisibleView;
+    private CurrentConnectionMode connectionMode;
+    private WifiControllerDelegate delegate;
 
     public static WiFiController getInstance() {
         return INSTANCE;
     }
 
 
-    public void setContext(Context context) {
+    public void setContextAndDelegate(Context context, WifiControllerDelegate delegate) {
+        if (delegate == null) {
+            Log.e(TAG, "Delegate cannot be null!");
+            return;
+        }
         requestQueue = Volley.newRequestQueue(context);
+        this.delegate = delegate;
     }
 
+
     private void requestLastCommandPage() {
-        if (requestQueue == null) {
-            throw new RuntimeException("Request queue cannot be null!");
+        if (requestQueue == null || delegate == null) {
+            throw new RuntimeException("Request queue and delegate cannot be null!");
         }
         if (host == null) {
             return;
         }
+        connectionMode = CurrentConnectionMode.TRYING_NEW_HOST;
+        delegate.onWifiControllerCallback();
         StringRequest stringRequest = new StringRequest(Request.Method.GET, getLastCommandUri(),
                 new Response.Listener<String>() {
                     @Override
                     public void onResponse(String response) {
                         currentStatus = "Saw response: " + response;
                         Log.d(TAG, "Updated current status: " + currentStatus);
-                        isConnected = true;
-                        updateTextView(lastVisibleView);
+                        connectionMode = CurrentConnectionMode.CONNECTED;
+                        delegate.onWifiControllerCallback();
                     }
                 }, new Response.ErrorListener() {
             @Override
             public void onErrorResponse(VolleyError error) {
                 currentStatus = "Saw error: " + error.getMessage() + " for URI " + getLastCommandUri();
-                isConnected = false;
+                connectionMode = CurrentConnectionMode.ERROR_CONNECTING;;
                 Log.d(TAG, "Updated current status: " + currentStatus);
-                updateTextView(lastVisibleView);
+                delegate.onWifiControllerCallback();
             }
         });
         requestQueue.add(stringRequest);
@@ -112,7 +138,7 @@ public class WiFiController {
 
 
     public void sendDownKeyCommand(CharSequence text) {
-        if (isConnected) {
+        if (connectionMode == CurrentConnectionMode.CONNECTED) {
             Log.d(TAG, "Sending down key for: " + text);
             String url = getLastCommandUri() + "?cmd=" + text + "&action=down";
             StringRequest req = new StringRequest(Request.Method.GET, url, new Response.Listener<String>() {
@@ -131,7 +157,7 @@ public class WiFiController {
     }
 
     public void sendUpKeyCommand(CharSequence text) {
-        if (isConnected) {
+        if (connectionMode == CurrentConnectionMode.CONNECTED) {
             Log.d(TAG, "Sending up key for: " + text);
             String url = getLastCommandUri() + "?cmd=" + text + "&action=up";
             StringRequest req = new StringRequest(Request.Method.GET, url, new Response.Listener<String>() {
@@ -194,21 +220,9 @@ public class WiFiController {
         isPolling = false;
     }
 
-    public void updateTextView(View v) {
-        if (v == null) return;
-        TextView tv = (TextView) v.findViewById(R.id.textView);
-        if (isConnected) {
-            tv.setText("Connected to: " + host);
-            tv.setTextColor(Color.rgb(39, 139, 34));
-        } else {
-            tv.setText("Not Connected to Ball");
-            tv.setTextColor(Color.LTGRAY);
-        }
-        lastVisibleView = v;
-    }
-
     public void setHost(String s) {
         host = s;
+
         tryToRequestLastCommandPage();
     }
 

@@ -8,7 +8,9 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.graphics.drawable.BitmapDrawable;
+import android.net.Uri;
 import android.os.AsyncTask;
+import android.provider.MediaStore;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.widget.ImageView;
@@ -107,5 +109,28 @@ public class ImageManipulator {
             }
         };
         th.start();
+    }
+
+
+    public static void setSavedImageFromUri(Uri imageUri, Activity activity) {
+        try {
+            Bitmap bitmap = MediaStore.Images.Media.getBitmap(activity.getApplicationContext().getContentResolver(),imageUri);
+            try
+
+            {
+                File file = getImageFile(activity.getApplicationContext());
+                if (!file.exists()) {
+                    file.createNewFile();
+                }
+                FileOutputStream fOut = new FileOutputStream(file);
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, fOut);
+                fOut.flush();
+                fOut.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

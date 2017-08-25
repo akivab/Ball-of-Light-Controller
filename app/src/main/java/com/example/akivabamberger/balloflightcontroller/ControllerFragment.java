@@ -11,6 +11,7 @@ import android.view.ViewGroup;
 import android.widget.CompoundButton;
 import android.widget.GridLayout;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 import android.widget.ToggleButton;
 
 import java.util.ArrayList;
@@ -94,13 +95,7 @@ public class ControllerFragment extends Fragment {
             buttons.add(b);
             b.setOnCheckedChangeListener(checkListener);
         }
-        WiFiController.getInstance().updateTextView(view);
+        ActionListActivity.updateWifiStateTextView((TextView) view.findViewById(R.id.textView));
         return view;
-    }
-
-
-    @Override
-    public void onDetach() {
-        super.onDetach();
     }
 }
