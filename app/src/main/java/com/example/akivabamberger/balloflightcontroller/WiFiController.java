@@ -44,7 +44,7 @@ public class WiFiController {
     }
     public static String SHARED_PREF_HOST_KEY = "Host";
     public static final String HOST_NAME = "BallOfLightHost";
-
+    boolean isTryingNewHost;
     private static final String TAG = "WiFiController";
     private String host = null; //"10.29.6.73";
     private final String kLastCommandPath = "/lastCommand";
@@ -81,8 +81,11 @@ public class WiFiController {
         if (host == null) {
             return;
         }
-        connectionMode = CurrentConnectionMode.TRYING_NEW_HOST;
-        delegate.onWifiControllerCallback();
+        if (isTryingNewHost) {
+            connectionMode = CurrentConnectionMode.TRYING_NEW_HOST;
+            delegate.onWifiControllerCallback();
+            isTryingNewHost = false;
+        }
         StringRequest stringRequest = new StringRequest(Request.Method.GET, getLastCommandUri(),
                 new Response.Listener<String>() {
                     @Override
@@ -221,8 +224,11 @@ public class WiFiController {
     }
 
     public void setHost(String s) {
+        if (host != null && host.equals(s)) {
+            return;
+        }
         host = s;
-
+        isTryingNewHost = true;
         tryToRequestLastCommandPage();
     }
 
