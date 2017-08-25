@@ -8,7 +8,6 @@ import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 
-import com.android.volley.NetworkResponse;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
@@ -16,15 +15,10 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 
-import org.w3c.dom.Text;
-
 import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -45,6 +39,7 @@ public class WiFiController {
     private Timer timer;
     private static WiFiController INSTANCE = new WiFiController();
     private boolean isConnected;
+    private View lastVisibleView;
 
     public static WiFiController getInstance() {
         return INSTANCE;
@@ -69,6 +64,7 @@ public class WiFiController {
                         currentStatus = "Saw response: " + response;
                         Log.d(TAG, "Updated current status: " + currentStatus);
                         isConnected = true;
+                        updateTextView(lastVisibleView);
                     }
                 }, new Response.ErrorListener() {
             @Override
@@ -76,6 +72,7 @@ public class WiFiController {
                 currentStatus = "Saw error: " + error.getMessage() + " for URI " + getLastCommandUri();
                 isConnected = false;
                 Log.d(TAG, "Updated current status: " + currentStatus);
+                updateTextView(lastVisibleView);
             }
         });
         requestQueue.add(stringRequest);
@@ -118,7 +115,17 @@ public class WiFiController {
         if (isConnected) {
             Log.d(TAG, "Sending down key for: " + text);
             String url = getLastCommandUri() + "?cmd=" + text + "&action=down";
-            StringRequest req = new StringRequest(Request.Method.GET, url, null, null);
+            StringRequest req = new StringRequest(Request.Method.GET, url, new Response.Listener<String>() {
+                @Override
+                public void onResponse(String response) {
+
+                }
+            }, new Response.ErrorListener() {
+                @Override
+                public void onErrorResponse(VolleyError error) {
+
+                }
+            });
             requestQueue.add(req);
         }
     }
@@ -127,7 +134,17 @@ public class WiFiController {
         if (isConnected) {
             Log.d(TAG, "Sending up key for: " + text);
             String url = getLastCommandUri() + "?cmd=" + text + "&action=up";
-            StringRequest req = new StringRequest(Request.Method.GET, url, null, null);
+            StringRequest req = new StringRequest(Request.Method.GET, url, new Response.Listener<String>() {
+                @Override
+                public void onResponse(String response) {
+
+                }
+            }, new Response.ErrorListener() {
+                @Override
+                public void onErrorResponse(VolleyError error) {
+
+                }
+            });
             requestQueue.add(req);
         }
     }
@@ -158,50 +175,16 @@ public class WiFiController {
 
 
     public void uploadUserPhoto(final File imageFile, final ProgressDialog dialog) {
-        VolleyMultipartRequest req = new VolleyMultipartRequest(Request.Method.POST, getUploadImageUri(), new Response.Listener<NetworkResponse>() {
-            @Override
-            public void onResponse(NetworkResponse response) {
-                dialog.dismiss();
-            }
-        }, new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                dialog.dismiss();
-            }
-        }) {
-            @Override
-            protected Map<String, DataPart> getByteData() {
-                Map<String, DataPart> params = new HashMap<>();
-                try {
-                    byte[] bytes = readFile(imageFile);
-                    params.put("imageFile", new DataPart(imageFile.getName(), bytes));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                return params;
-            }
-        };
-        requestQueue.add(req);
-    }
-
-    public static byte[] readFile(File file) throws IOException {
-        // Open file
-        RandomAccessFile f = new RandomAccessFile(file, "r");
         try {
-            // Get and check length
-            long longlength = f.length();
-            int length = (int) longlength;
-            if (length != longlength)
-                throw new IOException("File size >= 2 GB");
-            // Read file and return data
-            byte[] data = new byte[length];
-            f.readFully(data);
-            return data;
-        } finally {
-            f.close();
+            MultipartUtility multipartUtility = new MultipartUtility(getUploadImageUri());
+            multipartUtility.addFilePart("imageFile", imageFile);
+            multipartUtility.finish();
+            dialog.dismiss();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-    }
 
+    }
 
     public void stop() {
         if (timer != null) {
@@ -212,14 +195,16 @@ public class WiFiController {
     }
 
     public void updateTextView(View v) {
+        if (v == null) return;
         TextView tv = (TextView) v.findViewById(R.id.textView);
         if (isConnected) {
-            tv.setText("Connected to Ball @" + host);
-            tv.setTextColor(Color.GREEN);
+            tv.setText("Connected to: " + host);
+            tv.setTextColor(Color.rgb(39, 139, 34));
         } else {
             tv.setText("Not Connected to Ball");
             tv.setTextColor(Color.LTGRAY);
         }
+        lastVisibleView = v;
     }
 
     public void setHost(String s) {
